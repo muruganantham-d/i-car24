@@ -2,18 +2,25 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
-import InspectionForm from "./components/InspectionForm";
+import InspectionForm from "./components/InspecDetailForm";
 import ReportPage from "./components/ReportPage";
 import InspectionList from "./components/InspectionList";
+import InspectionForm2 from "./components/inspection/InspectionsForm2";
+import InspectionDetailPage from "./components/inspection_detail/InspectionDetailForm";
+
 
 export default function App() {
   return (
     <>
       <Router>
         <Routes>
-          <Route path="/" element={<InspectionForm />} />
+          <Route path="/inspec_detail" element={<InspectionForm />} />
           <Route path="/report/:id" element={<ReportPage />} />
-          <Route path="/inspections" element={<InspectionList />} />
+          <Route path="/inspec_lit" element={<InspectionList />} />
+
+          {/* ///// */}
+          <Route path="/inspections" element={<InspectionForm2/>} />
+         <Route path="/inspec_detail2" element={<InspectionDetailPage/>} />
         </Routes>
       </Router>
 

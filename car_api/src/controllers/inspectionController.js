@@ -1,72 +1,117 @@
-const pool = require('../config/db');
-const { v4: uuidv4 } = require('uuid');
-const path = require('path');
-const fs = require('fs');
+const pool = require("../config/db");
+const path = require("path");
 
-const createInspection = async (req, res) => {
+/**
+ * Create new inspection
+ */
+exports.createInspection = async (req, res) => {
   try {
-    const formData = req.body;
-    const photos = req.files;
+    // photos uploaded → req.files
+    const photos = req.files || [];
 
-    const photoNames = photos ? photos.map(file => file.filename) : [];
+    const photoPaths = photos.map((file) => {
+      return `/uploads/${file.filename}`;
+    });
 
-    const id = uuidv4();
+    const {
+      client_name,
+      client_phone,
+      inspector_name,
+      vehicle_make,
+      vehicle_model,
+      vehicle_year,
+      vin,
+      plate_number,
+      mileage,
+      fuel_type,
+      seating_capacity,
+      color,
+      test_drive,
+      car_registered_in,
+      overall_condition,
+      remarks
+    } = req.body;
 
-    const query = `
-      INSERT INTO inspections (id, brand, model, year, mileage, vin, plate, accident_history, service_records,
-        body_condition, dents, scratches, repainted_areas, rust,
-        paint_type, paint_condition, fading, clear_coat_peeling,
-        front_bumper, rear_bumper, hood, trunk, roof, left_fender, right_fender,
-        left_front_door, left_rear_door, right_front_door, right_rear_door,
-        engine_starts, engine_noise, exhaust_smoke, oil_leaks, overheating,
-        windshield, rear_glass, side_glass, sunroof,
-        ac_cooling, ac_heating, blower_speed, ac_smell,
-        coolant_level, engine_oil, brake_fluid, power_steering, battery,
-        brake_pads, brake_discs, hand_brake, abs_light,
-        headlights, taillights, indicators, wipers,
-        central_lock, power_windows, infotainment, reverse_camera,
-        photos)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    const sql = `
+      INSERT INTO inspections 
+      (
+        client_name, client_phone, inspector_name,
+        vehicle_make, vehicle_model, vehicle_year,
+        vin, plate_number, mileage, fuel_type,
+        seating_capacity, color, test_drive,
+        car_registered_in, overall_condition, remarks,
+        photos_json
+      )
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `;
 
     const values = [
-      id,
-      formData.brand || null, formData.model || null, formData.year || null,
-      formData.mileage || null, formData.vin || null, formData.plate || null,
-      formData.accident_history || null, formData.service_records || null,
-      formData.body_condition || null, formData.dents || null, formData.scratches || null,
-      formData.repainted_areas || null, formData.rust || null,
-      formData.paint_type || null, formData.paint_condition || null, formData.fading || null,
-      formData.clear_coat_peeling || null,
-      formData.front_bumper || null, formData.rear_bumper || null, formData.hood || null,
-      formData.trunk || null, formData.roof || null, formData.left_fender || null,
-      formData.right_fender || null, formData.left_front_door || null, formData.left_rear_door || null,
-      formData.right_front_door || null, formData.right_rear_door || null,
-      formData.engine_starts || null, formData.engine_noise || null, formData.exhaust_smoke || null,
-      formData.oil_leaks || null, formData.overheating || null,
-      formData.windshield || null, formData.rear_glass || null, formData.side_glass || null,
-      formData.sunroof || null,
-      formData.ac_cooling || null, formData.ac_heating || null, formData.blower_speed || null,
-      formData.ac_smell || null,
-      formData.coolant_level || null, formData.engine_oil || null, formData.brake_fluid || null,
-      formData.power_steering || null, formData.battery || null,
-      formData.brake_pads || null, formData.brake_discs || null, formData.hand_brake || null,
-      formData.abs_light || null,
-      formData.headlights || null, formData.taillights || null, formData.indicators || null,
-      formData.wipers || null,
-      formData.central_lock || null, formData.power_windows || null, formData.infotainment || null,
-      formData.reverse_camera || null,
-      JSON.stringify(photoNames)
+      client_name,
+      client_phone,
+      inspector_name,
+      vehicle_make,
+      vehicle_model,
+      vehicle_year,
+      vin || null,
+      plate_number || null,
+      mileage || null,
+      fuel_type || null,
+      seating_capacity || null,
+      color || null,
+      test_drive ? 1 : 0,
+      car_registered_in || null,
+      overall_condition || null,
+      remarks || null,
+      JSON.stringify(photoPaths)
     ];
 
-    await pool.execute(query, values);
+    const [result] = await pool.query(sql, values);
 
-    res.json({ success: true, id });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    return res.json({
+      id: result.insertId,
+      pdfUrl: `/api/inspections/pdf/${result.insertId}`,
+      shareUrl: `http://localhost:5173/report/${result.insertId}`,
+      message: "Inspection created successfully"
+    });
+  } catch (err) {
+    console.error("Error creating inspection:", err);
+    return res.status(500).json({ error: "Server error. Try again." });
   }
 };
 
-module.exports = { createInspection };
+/**
+ * Fetch single inspection by ID
+ */
+exports.getInspection = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [rows] = await pool.query(
+      "SELECT * FROM inspections WHERE id = ? LIMIT 1",
+      [id]
+    );
+
+    if (rows.length === 0)
+      return res.status(404).json({ error: "Inspection not found" });
+
+    return res.json(rows[0]);
+  } catch (err) {
+    console.error("Error fetching inspection:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+/**
+ * List all inspections
+ */
+exports.getAllInspections = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      "SELECT id, client_name, vehicle_make, vehicle_model, vehicle_year, created_at FROM inspections ORDER BY id DESC"
+    );
+    return res.json(rows);
+  } catch (err) {
+    console.error("Error listing inspections:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
