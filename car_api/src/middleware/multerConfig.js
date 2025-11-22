@@ -4,7 +4,8 @@ const { v4: uuidv4 } = require('uuid');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'src/uploads/');
+    // Correct path: car_api/uploads/
+    cb(null, path.join(__dirname, "../uploads"));
   },
   filename: (req, file, cb) => {
     const uniqueName = uuidv4() + '-' + Date.now() + path.extname(file.originalname);
